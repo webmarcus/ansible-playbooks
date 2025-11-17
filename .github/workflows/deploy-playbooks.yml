@@ -103,14 +103,14 @@ jobs:
           access_token: ${{ secrets.BWS_ACCESS_TOKEN }}
           base_url: https://vault.bitwarden.eu
           secrets: |
-            <tailscale-oauth-client-id-uuid> > TAILSCALE_OAUTH_CLIENT_ID
-            <tailscale-oauth-secret-uuid> > TAILSCALE_OAUTH_SECRET
+            f942f933-552f-49bf-bc03-b39101441184 > TS_OAUTH_CLIENT_ID
+            019095dc-43b6-4433-9dad-b39101444e03 > TS_OAUTH_SECRET
 
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
-          oauth-client-id: ${{ env.TAILSCALE_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ env.TAILSCALE_OAUTH_SECRET }}
+          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
           tags: tag:ci
 
       - name: Setup Python
