@@ -1,7 +1,9 @@
 ---
 plugin: freeformz.ansible.tailscale
-ansible_host: ipv4
+ansible_host: name
 ansible_user: root
 api_key: "{{ lookup('bitwarden.secrets.lookup', 'a71eebe6-fc6f-4bfb-969a-b38c016e0795', base_url='https://vault.bitwarden.eu') }}"
 tailnet: "-"
 include_self: true
+compose:
+  ansible_host: inventory_hostname + '.tail7da445.ts.net'
