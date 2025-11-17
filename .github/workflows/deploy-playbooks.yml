@@ -119,9 +119,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Ansible and Redis
+      - name: Install Ansible, Redis, and Bitwarden SDK
         run: |
-          pip install ansible redis
+          pip install ansible redis bitwarden-sdk
 
       - name: Install Ansible Collections
         env:
