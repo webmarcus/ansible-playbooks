@@ -134,6 +134,7 @@ jobs:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
           ANSIBLE_CACHE_PLUGIN_CONNECTION: ${{ env.ANSIBLE_CACHE_PLUGIN_CONNECTION }}
           ANSIBLE_FORCE_COLOR: 'true'
+          ANSIBLE_REMOTE_USER: root
         run: |
           echo "Running playbook: ${{ matrix.playbook }}"
           ansible-playbook -v ${{ matrix.playbook }}
