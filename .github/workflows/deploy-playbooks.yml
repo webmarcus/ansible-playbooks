@@ -97,7 +97,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get Tailscale OAuth credentials from Bitwarden
+      - name: Get secrets from Bitwarden
         uses: bitwarden/sm-action@v2
         with:
           access_token: ${{ secrets.BWS_ACCESS_TOKEN }}
@@ -105,6 +105,7 @@ jobs:
           secrets: |
             f942f933-552f-49bf-bc03-b39101441184 > TS_OAUTH_CLIENT_ID
             019095dc-43b6-4433-9dad-b39101444e03 > TS_OAUTH_SECRET
+            02a4e11b-9799-4e86-92a2-b398016aa496 > ANSIBLE_CACHE_PLUGIN_CONNECTION
 
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
@@ -131,7 +132,7 @@ jobs:
       - name: Run Ansible Playbook - ${{ matrix.playbook }}
         env:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
-          ANSIBLE_CACHE_PLUGIN_CONNECTION: ${{ secrets.ANSIBLE_CACHE_PLUGIN_CONNECTION }}
+          ANSIBLE_CACHE_PLUGIN_CONNECTION: ${{ env.ANSIBLE_CACHE_PLUGIN_CONNECTION }}
           ANSIBLE_FORCE_COLOR: 'true'
         run: |
           echo "Running playbook: ${{ matrix.playbook }}"
