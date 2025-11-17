@@ -1,0 +1,14 @@
+*.retry
+.ansible/
+collections/
+__pycache__/
+*.pyc
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Ansible artifact files
+=*

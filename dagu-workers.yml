@@ -1,0 +1,160 @@
+---
+# ==============================================================================
+# Dagu Worker Configuration (Distributed Execution)
+# ==============================================================================
+#
+# Configure Dagu worker nodes tagged with 'tag:dagu-worker'.
+# Workers are typically provisioned by Terraform with Tailscale pre-configured.
+#
+# Worker Provisioning Flow:
+# 1. Terraform creates cloud VM with cloud-init script
+# 2. cloud-init installs and configures Tailscale (ephemeral, tag:dagu-worker)
+# 3. Tailscale dynamic inventory auto-discovers the worker
+# 4. This playbook configures the worker (manual or automated via Dagu workflow)
+#
+# What this playbook configures:
+# - Base system (packages, user, timezone)
+# - Docker for container execution
+# - NFS client to mount shared DAG files from controller
+# - Dagu worker mode (headless, gRPC connection to coordinator)
+# - Worker labels for task routing
+#
+# NOTE: Tailscale is pre-configured by Terraform cloud-init!
+#
+# Usage:
+#   # Configure all workers (general-purpose)
+#   ansible-playbook dagu-workers.yml
+#
+#   # Configure specific worker with labels
+#   ansible-playbook dagu-workers.yml --limit dagu-worker-01 \
+#     -e "worker_type=general"
+#
+#   # Configure GPU worker
+#   ansible-playbook dagu-workers.yml --limit dagu-worker-gpu-01 \
+#     -e "worker_type=gpu" \
+#     -e "extra_worker_labels={'gpu':'nvidia-a100','vram':'80GB'}"
+#
+#   # Configure CPU-intensive worker
+#   ansible-playbook dagu-workers.yml --limit dagu-worker-cpu-01 \
+#     -e "worker_type=cpu-intensive" \
+#     -e "extra_worker_labels={'cores':'32','ram':'128GB'}"
+#
+# ==============================================================================
+
+- name: Configure Dagu Worker
+  hosts: dagu_worker
+  become: true
+  gather_facts: true
+
+  vars:
+    # Worker labels for task routing (can be overridden via extra-vars)
+    # Defaults from group_vars/dagu_workers.yml will be merged with these
+    worker_labels:
+      region: "{{ worker_region | default('eu-north-1') }}"
+      type: "{{ worker_type | default('general') }}"
+
+    # Override dagu_worker_labels from group_vars with dynamic labels
+    dagu_worker_labels: "{{ worker_labels | combine(extra_worker_labels | default({})) }}"
+
+  pre_tasks:
+    - name: Display worker configuration info
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Configuring Dagu Worker"
+          - "=========================================="
+          - "Hostname: {{ inventory_hostname }}"
+          - "Tailscale IP: {{ ansible_host }}"
+          - "Dagu version: {{ dagu_version }}"
+          - "Mode: Distributed Worker (Headless)"
+          - "Coordinator: {{ groups['dagu_coordinator'][0] if groups['dagu_coordinator'] | length > 0 else 'Not found' }}"
+          - "Worker Labels: {{ dagu_worker_labels | to_nice_json }}"
+          - "=========================================="
+      tags: [always]
+
+    - name: Verify worker is in dagu_worker group
+      ansible.builtin.assert:
+        that:
+          - "'dagu_worker' in group_names"
+        fail_msg: "Host must have 'tag:dagu-worker' in Tailscale."
+      tags: [always]
+
+    - name: Verify coordinator exists
+      ansible.builtin.assert:
+        that:
+          - groups['dagu_coordinator'] is defined
+          - groups['dagu_coordinator'] | length > 0
+        fail_msg: "No coordinator found in inventory. Ensure coordinator is deployed first."
+      tags: [always]
+
+  roles:
+    # Docker installation - TODO: Configure Docker installation tasks
+    # - role: community.docker
+    #   tags: [docker]
+
+    - role: webmarcus.nfs.nfs
+      tags: [nfs]
+
+    - role: webmarcus.dagu.dagu
+      tags: [dagu]
+
+  post_tasks:
+    - name: Display NFS mount information
+      when: enable_nfs_client | default(false) | bool
+      tags: [nfs, info]
+      block:
+        - name: Get mounted filesystems
+          ansible.builtin.command: df -h
+          register: df_mounts
+          changed_when: false
+
+        - name: Filter NFS mounts
+          ansible.builtin.set_fact:
+            nfs_mounts: "{{ df_mounts.stdout_lines | select('search', 'nfs') | list }}"
+
+        - name: Display NFS mounts
+          ansible.builtin.debug:
+            msg: "{{ nfs_mounts }}"
+
+    - name: Verify connectivity to coordinator (Web UI)
+      ansible.builtin.wait_for:
+        host: "{{ groups['dagu_coordinator'][0] }}"
+        port: 8080
+        timeout: 10
+      tags: [verify]
+
+    - name: Verify connectivity to coordinator (gRPC)
+      ansible.builtin.wait_for:
+        host: "{{ groups['dagu_coordinator'][0] }}"
+        port: 50051
+        timeout: 10
+      tags: [verify]
+
+    - name: Display worker configuration summary
+      ansible.builtin.debug:
+        msg:
+          - ""
+          - "╔════════════════════════════════════════════════════════════╗"
+          - "║    Dagu Worker Configured Successfully                     ║"
+          - "╚════════════════════════════════════════════════════════════╝"
+          - ""
+          - "Worker: {{ inventory_hostname }}"
+          - "Tailscale IP: {{ ansible_host }}"
+          - "Coordinator: {{ groups['dagu_coordinator'][0] }}"
+          - "Mode: Headless Worker (gRPC)"
+          - "Worker Labels: {{ dagu_worker_labels | to_nice_json }}"
+          - ""
+          - "Connections:"
+          - "  gRPC: {{ groups['dagu_coordinator'][0] }}:50051"
+          - "  NFS:  {{ groups['dagu_coordinator'][0] }}:/opt/dagu/shared/dags"
+          - ""
+          - "Check status:"
+          - "  ssh {{ inventory_hostname }} 'sudo systemctl status dagu'"
+          - ""
+          - "View logs:"
+          - "  ssh {{ inventory_hostname }} 'sudo journalctl -u dagu -f'"
+          - ""
+          - "Manage from coordinator Web UI:"
+          - "  http://{{ groups['dagu_coordinator'][0] }}:8080"
+          - ""
+      tags: [always]

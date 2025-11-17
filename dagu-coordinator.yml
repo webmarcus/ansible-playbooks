@@ -1,0 +1,171 @@
+---
+# ==============================================================================
+# Dagu Coordinator Deployment (Distributed Execution)
+# ==============================================================================
+#
+# Deploy Dagu coordinator on machines tagged with 'tag:dagu-coordinator'.
+# This is a tag-based playbook that will automatically apply to any host
+# with the appropriate tag in Tailscale.
+#
+# What this playbook configures:
+# - Base system (packages, user, timezone)
+# - Docker for container execution
+# - NFS server for sharing DAGs/logs with workers
+# - Dagu coordinator with Web UI, scheduler, and gRPC server
+#
+# Prerequisites:
+# - Host must have tag:dagu-coordinator in Tailscale
+# - Tailscale dynamic inventory configured
+#
+# Usage:
+#   ansible-playbook dagu-controller.yml
+#
+# Access Dagu UI:
+#   http://<controller-hostname>:8080 (from any device in Tailscale mesh)
+#
+# ==============================================================================
+
+- name: Deploy Dagu Coordinator
+  hosts: dagu_coordinator
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Deploying Dagu Coordinator"
+          - "=========================================="
+          - "Hostname: {{ inventory_hostname }}"
+          - "Tailscale IP: {{ ansible_host }}"
+          - "Dagu version: {{ dagu_version }}"
+          - "Mode: Coordinator (Web UI + gRPC)"
+          - "gRPC Port: 50051"
+          - "=========================================="
+      tags: [always]
+
+    - name: Verify host is in dagu_coordinator group
+      ansible.builtin.assert:
+        that:
+          - "'dagu_coordinator' in group_names"
+        fail_msg: "Host must have 'tag:dagu-coordinator' in Tailscale."
+      tags: [always]
+
+  tasks:
+    # System setup tasks (previously in common role)
+    - name: Set timezone
+      community.general.timezone:
+        name: "{{ system_timezone }}"
+      tags: [common, timezone]
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags: [common, packages]
+
+    - name: Install common system packages
+      ansible.builtin.apt:
+        name: "{{ system_packages }}"
+        state: present
+      tags: [common, packages]
+
+  roles:
+    # Docker installation - TODO: Configure Docker installation tasks
+    # - role: community.docker
+    #   tags: [docker]
+
+    - role: webmarcus.nfs.nfs
+      tags: [nfs]
+
+    - role: webmarcus.dagu.dagu
+      tags: [dagu]
+
+  post_tasks:
+    - name: Display NFS export information
+      when: enable_nfs_server | default(false) | bool
+      tags: [nfs, info]
+      block:
+        - name: Get NFS exports
+          ansible.builtin.command: exportfs -v
+          register: nfs_exports
+          changed_when: false
+
+        - name: Display NFS exports
+          ansible.builtin.debug:
+            msg: "{{ nfs_exports.stdout_lines }}"
+
+    - name: Display Git integration status
+      when: git_integration_enabled | default(false) | bool
+      tags: [git, info]
+      ansible.builtin.debug:
+        msg:
+          - "Git integration enabled"
+          - "Repository: {{ git_repo_url }}"
+          - "Branch: {{ git_branch }}"
+          - "Sync schedule: {{ git_sync_schedule }}"
+
+    - name: Configure Tailscale serve for Dagu
+      when: dagu_distributed_mode == 'coordinator'
+      tags: [tailscale, serve]
+      block:
+        - name: Configure Tailscale serve for Web UI (HTTP)
+          ansible.builtin.command: tailscale serve --bg --http=8080 http://localhost:8080
+          register: tailscale_http_serve
+          changed_when: "'Serving' in tailscale_http_serve.stdout or tailscale_http_serve.rc == 0"
+          failed_when: false
+
+        - name: Configure Tailscale serve for Coordinator (TCP)
+          ansible.builtin.command: tailscale serve --bg --tcp=50051 tcp://localhost:50051
+          register: tailscale_tcp_serve
+          changed_when: "'Serving' in tailscale_tcp_serve.stdout or tailscale_tcp_serve.rc == 0"
+          failed_when: false
+
+        - name: Get Tailscale serve status
+          ansible.builtin.command: tailscale serve status
+          register: tailscale_serve_status
+          changed_when: false
+          failed_when: false
+
+        - name: Display Tailscale serve configuration
+          ansible.builtin.debug:
+            msg:
+              - "Tailscale serve configured:"
+              - "{{ tailscale_serve_status.stdout_lines }}"
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - ""
+          - "╔════════════════════════════════════════════════════════════╗"
+          - "║    Dagu Coordinator Deployed Successfully                  ║"
+          - "╚════════════════════════════════════════════════════════════╝"
+          - ""
+          - "Access Dagu UI:"
+          - "  • Tailscale hostname: http://{{ inventory_hostname }}.tail7da445.ts.net:{{ dagu_port }}"
+          - "  • Direct IP: http://{{ ansible_host }}:{{ dagu_port }}"
+          - "  • Localhost: http://localhost:{{ dagu_port }}"
+          - ""
+          - "Coordinator endpoint (for workers):"
+          - "  • gRPC: {{ dagu_coordinator_advertise | default(inventory_hostname) }}:{{ dagu_coordinator_port }}"
+          - ""
+          - "Services:"
+          - "  • Web UI: :8080 (HTTP via Tailscale serve)"
+          - "  • gRPC Coordinator: :50051 (TCP via Tailscale serve)"
+          - "  • NFS Server: exports DAGs to workers"
+          - ""
+          - "Check status:"
+          - "  ssh {{ inventory_hostname }} 'sudo systemctl status dagu'"
+          - "  ssh {{ inventory_hostname }} 'tailscale serve status'"
+          - ""
+          - "View logs:"
+          - "  ssh {{ inventory_hostname }} 'sudo journalctl -u dagu -f'"
+          - ""
+          - "Next steps:"
+          - "  1. Access web UI and verify coordinator is running"
+          - "  2. Provision workers (tag:dagu-worker in Tailscale)"
+          - "  3. Run: ansible-playbook dagu-workers.yml"
+          - "  4. Workers will connect to {{ dagu_coordinator_advertise | default(inventory_hostname) }}:{{ dagu_coordinator_port }}"
+          - ""
+      tags: [always]

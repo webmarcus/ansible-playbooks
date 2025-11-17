@@ -1,0 +1,66 @@
+---
+# ==============================================================================
+# Master Site Playbook
+# ==============================================================================
+#
+# Master playbook that orchestrates all infrastructure configurations
+# across your Tailscale mesh.
+#
+# Usage:
+#   # Configure everything
+#   ansible-playbook site.yml
+#
+#   # Dry run
+#   ansible-playbook site.yml --check
+#
+#   # Configure specific components using tags from playbooks
+#   ansible-playbook site.yml --tags dagu
+#   ansible-playbook site.yml --tags docker
+#   ansible-playbook site.yml --tags nfs
+#
+# ==============================================================================
+
+# ==============================================================================
+# Dagu Infrastructure
+# ==============================================================================
+
+- name: Configure Dagu Coordinator
+  import_playbook: dagu-coordinator.yml
+
+- name: Configure Dagu Workers
+  import_playbook: dagu-workers.yml
+
+# ==============================================================================
+# Personal Workstation
+# ==============================================================================
+
+- name: Configure Personal Workstation
+  import_playbook: personal.yml
+
+# ==============================================================================
+# Summary
+# ==============================================================================
+
+- name: Display Deployment Summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Show completion message
+      ansible.builtin.debug:
+        msg:
+          - ""
+          - "╔══════════════════════════════════════════════════════════════╗"
+          - "║         Site-wide Configuration Completed Successfully       ║"
+          - "╚══════════════════════════════════════════════════════════════╝"
+          - ""
+          - "Infrastructure:"
+          - "  ✓ Dagu coordinator configured"
+          - "  ✓ Dagu workers configured"
+          - "  ✓ Personal workstation configured"
+          - ""
+          - "Next steps:"
+          - "  1. Check Dagu UI: http://<coordinator>:8080"
+          - "  2. Verify workers: curl http://<coordinator>:8080/api/v2/workers"
+          - "  3. Monitor logs: ssh <host> 'journalctl -u dagu -f'"
+          - ""
+      tags: [always]

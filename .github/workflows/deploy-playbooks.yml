@@ -1,0 +1,139 @@
+name: Deploy Ansible Playbooks
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '*.yml'
+      - '*.yaml'
+      - 'requirements.yml'
+      - 'group_vars/**'
+      - 'host_vars/**'
+      - 'inventory/**'
+  workflow_dispatch:
+    inputs:
+      playbooks:
+        description: 'Specific playbooks to run (comma-separated, e.g., dagu-coordinator.yml,personal.yml). Leave empty to run all changed playbooks.'
+        required: false
+        type: string
+
+jobs:
+  detect-playbooks:
+    name: Detect Changed Playbooks
+    runs-on: ubuntu-latest
+    outputs:
+      playbooks: ${{ steps.detect.outputs.playbooks }}
+      has_playbooks: ${{ steps.detect.outputs.has_playbooks }}
+      collections_changed: ${{ steps.detect.outputs.collections_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed playbooks
+        id: detect
+        run: |
+          # Manual trigger with specific playbooks
+          if [ -n "${{ github.event.inputs.playbooks }}" ]; then
+            echo "Manual trigger - using specified playbooks: ${{ github.event.inputs.playbooks }}"
+            PLAYBOOKS="${{ github.event.inputs.playbooks }}"
+            # Convert comma-separated list to JSON array
+            PLAYBOOKS_JSON=$(echo "$PLAYBOOKS" | jq -R -s -c 'split(",") | map(select(length > 0) | gsub("^\\s+|\\s+$";""))')
+            echo "playbooks=$PLAYBOOKS_JSON" >> $GITHUB_OUTPUT
+            echo "has_playbooks=true" >> $GITHUB_OUTPUT
+            echo "collections_changed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Automatic trigger - detect changes
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+
+          # Check if collections requirements changed
+          if echo "$CHANGED_FILES" | grep -qE "^requirements\.ya?ml$"; then
+            echo "collections_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "collections_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Find all changed playbook files in root directory only
+          # Match both .yml and .yaml extensions
+          # Exclude requirements.yml/yaml
+          CHANGED_PLAYBOOKS=$(echo "$CHANGED_FILES" | \
+            grep -E "^[^/]*\.ya?ml$" | \
+            grep -vE "^requirements\.ya?ml$" || true)
+
+          if [ -z "$CHANGED_PLAYBOOKS" ]; then
+            echo "No playbook changes detected"
+            echo "playbooks=[]" >> $GITHUB_OUTPUT
+            echo "has_playbooks=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changed playbooks:"
+            echo "$CHANGED_PLAYBOOKS"
+
+            # Convert to JSON array for matrix
+            PLAYBOOKS_JSON=$(echo "$CHANGED_PLAYBOOKS" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            echo "playbooks=$PLAYBOOKS_JSON" >> $GITHUB_OUTPUT
+            echo "has_playbooks=true" >> $GITHUB_OUTPUT
+          fi
+
+  deploy:
+    name: Deploy ${{ matrix.playbook }}
+    runs-on: ubuntu-latest
+    needs: detect-playbooks
+    if: needs.detect-playbooks.outputs.has_playbooks == 'true'
+    strategy:
+      matrix:
+        playbook: ${{ fromJson(needs.detect-playbooks.outputs.playbooks) }}
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible and Redis
+        run: |
+          pip install ansible redis
+
+      - name: Install Bitwarden Secrets CLI
+        run: |
+          curl -Lo bws.zip "https://github.com/bitwarden/sdk/releases/latest/download/bws-x86_64-unknown-linux-gnu-1.0.0.zip"
+          unzip bws.zip
+          chmod +x bws
+          sudo mv bws /usr/local/bin/
+
+      - name: Install Ansible Collections
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+        run: |
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Run Ansible Playbook - ${{ matrix.playbook }}
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          ANSIBLE_CACHE_PLUGIN_CONNECTION: ${{ secrets.ANSIBLE_CACHE_PLUGIN_CONNECTION }}
+          ANSIBLE_FORCE_COLOR: 'true'
+        run: |
+          echo "Running playbook: ${{ matrix.playbook }}"
+          ansible-playbook -v ${{ matrix.playbook }}
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Successfully deployed ${{ matrix.playbook }}"
+          else
+            echo "❌ Failed to deploy ${{ matrix.playbook }}"
+          fi

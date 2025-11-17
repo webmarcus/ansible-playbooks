@@ -1,0 +1,93 @@
+---
+# ==============================================================================
+# Ansible Collections and Roles Requirements
+# ==============================================================================
+#
+# This file defines all external dependencies needed for the project.
+#
+# Install all dependencies:
+#   ansible-galaxy install -r requirements.yml
+#
+# Or separately:
+#   ansible-galaxy collection install -r requirements.yml
+#   ansible-galaxy role install -r requirements.yml
+#
+# ==============================================================================
+
+collections:
+  # ---------------------------------------------------------------------------
+  # Tailscale Integration
+  # ---------------------------------------------------------------------------
+
+  # Dynamic inventory plugin for discovering hosts in Tailscale mesh
+  # Used by: inventory/tailscale.yaml
+  # Purpose: Auto-discover all devices in Tailscale and organize by tags
+  - name: freeformz.ansible
+    version: "0.4.0"
+    source: https://galaxy.ansible.com
+
+  # Tailscale installation and configuration role
+  # Used by: roles (if we want to install Tailscale on new hosts)
+  # Purpose: Install and configure Tailscale client on hosts
+  # Note: Currently not used - Terraform cloud-init handles Tailscale install
+  - name: artis3n.tailscale
+    version: ">=1.0.0"
+    source: https://galaxy.ansible.com
+
+  # ---------------------------------------------------------------------------
+  # Secrets Management
+  # ---------------------------------------------------------------------------
+
+  # Bitwarden Secrets Manager integration
+  # Used by: group_vars/all/vault.yml, playbooks
+  # Purpose: Lookup secrets from Bitwarden
+  - name: bitwarden.secrets
+    version: ">=0.1.0"
+    source: https://galaxy.ansible.com
+
+  # ---------------------------------------------------------------------------
+  # System Utilities
+  # ---------------------------------------------------------------------------
+
+  # POSIX-specific modules (sysctl, mount, firewalld, etc.)
+  # Used by: Various playbooks for system configuration
+  - name: ansible.posix
+    version: ">=1.0.0"
+    source: https://galaxy.ansible.com
+
+  # General-purpose modules (snap, redis, etc.)
+  # Used by: playbooks/tools/development-tools.yml (snap module)
+  # Used by: ansible.cfg (redis fact caching)
+  - name: community.general
+    version: ">=1.0.0"
+    source: https://galaxy.ansible.com
+
+  # ---------------------------------------------------------------------------
+  # Infrastructure Management
+  # ---------------------------------------------------------------------------
+
+  # Docker modules for container management
+  # Used by: dagu-coordinator.yml, dagu-workers.yml
+  # Purpose: Manage Docker containers, images, networks, volumes
+  # Note: Does not install Docker - installation handled in playbook tasks
+  - name: community.docker
+    version: ">=3.0.0"
+    source: https://galaxy.ansible.com
+
+  # ---------------------------------------------------------------------------
+  # Webmarcus Collections (Published to Galaxy)
+  # ---------------------------------------------------------------------------
+
+  # NFS server and client configuration
+  # Used by: dagu-coordinator.yml (NFS server), dagu-workers.yml (NFS client)
+  # Purpose: Share DAG files from coordinator to workers
+  - name: webmarcus.nfs
+    version: ">=1.0.0"
+    source: https://galaxy.ansible.com
+
+  # Dagu workflow scheduler deployment
+  # Used by: dagu-coordinator.yml, dagu-workers.yml
+  # Purpose: Deploy and configure Dagu in distributed mode
+  - name: webmarcus.dagu
+    version: ">=1.1.8"
+    source: https://galaxy.ansible.com

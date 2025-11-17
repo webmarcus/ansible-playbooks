@@ -1,0 +1,101 @@
+---
+# ============================================================================
+# Secrets Configuration - All secrets managed via Bitwarden Secrets Manager
+# ============================================================================
+#
+# This file contains all sensitive credentials for the Dagu deployment.
+# All values are retrieved from Bitwarden Secrets Manager using the
+# bitwarden.secrets.lookup plugin.
+#
+# Setup Instructions:
+# 1. Install: pip3 install bitwarden-sdk
+# 2. Install: ansible-galaxy collection install bitwarden.secrets
+# 3. Create machine account in Bitwarden web vault
+# 4. Store access token: echo "TOKEN" > ~/.bitwarden/access-token
+# 5. Export: export BWS_ACCESS_TOKEN="$(cat ~/.bitwarden/access-token)"
+# 6. Replace placeholder SECRET-IDs below with actual IDs from Bitwarden
+#
+# See README.md section "Secrets Management with Bitwarden" for details.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Bitwarden Server Configuration
+# ----------------------------------------------------------------------------
+# NOTE: Using European Bitwarden server (vault.bitwarden.eu)
+# If using US/Cloud server, change to: https://vault.bitwarden.com
+# If self-hosted, change to your instance URL
+bitwarden_base_url: "https://vault.bitwarden.eu"
+
+# ----------------------------------------------------------------------------
+# Ansible Configuration Secrets
+# ----------------------------------------------------------------------------
+# Sudo password for privilege escalation (become)
+# Used for: Installing packages, managing services, creating users
+ansible_become_pass: "{{ lookup('bitwarden.secrets.lookup', '779003f3-0ecb-4ad0-b5bc-b38a012e4931', base_url=bitwarden_base_url) }}"
+
+# ----------------------------------------------------------------------------
+# Tailscale Secrets
+# ----------------------------------------------------------------------------
+
+# API Key for Dynamic Inventory
+# Used by: Ansible dynamic inventory plugin to discover hosts in Tailscale mesh
+# Get from: https://login.tailscale.com/admin/settings/keys
+# Settings:
+#   - Name: "Ansible Dynamic Inventory"
+#   - Permissions: Read (devices, routes)
+#   - Expiration: 90 days or longer
+#
+# This key allows Ansible to query Tailscale API for all devices and their metadata
+tailscale_api_key: "{{ lookup('bitwarden.secrets.lookup', 'a71eebe6-fc6f-4bfb-969a-b38c016e0795', base_url=bitwarden_base_url) }}"
+
+# Worker Auth Key for Auto-provisioning
+# Used by: Terraform cloud-init script to auto-register workers in Tailscale mesh
+# Get from: https://login.tailscale.com/admin/settings/keys
+# Settings:
+#   - Tags: tag:dagu-worker, tag:ephemeral, tag:ansible
+#   - Ephemeral: YES (auto-cleanup when worker is destroyed)
+#   - Reusable: YES (multiple workers use same key)
+#   - Expiration: 90 days
+#
+# NOTE: Controllers (workstation & VM) are configured MANUALLY in Tailscale.
+#       Only workers need auth keys for auto-provisioning.
+tailscale_authkey_workers: "{{ lookup('bitwarden.secrets.lookup', 'REPLACE-WITH-WORKER-KEY-SECRET-ID', base_url=bitwarden_base_url) }}"
+
+# ----------------------------------------------------------------------------
+# Dagu Authentication Secrets
+# ----------------------------------------------------------------------------
+# Basic authentication password for Dagu web UI
+# Used when: dagu_enable_basic_auth: true in group_vars
+# Username is configurable via dagu_basic_auth_username (default: "admin")
+dagu_basic_auth_password: "{{ lookup('bitwarden.secrets.lookup', 'b4abfc2f-fea8-4cfd-a57b-b38e00c17db1', base_url=bitwarden_base_url) }}"
+
+# ----------------------------------------------------------------------------
+# Git Integration Secrets (Optional - for DAG synchronization)
+# ----------------------------------------------------------------------------
+# SSH private key for accessing PRIVATE Git repositories
+# Only needed if:
+#   - git_integration_enabled: true in group_vars
+#   - git_repo_url uses SSH format (git@github.com:user/repo.git)
+#
+# For PUBLIC repositories:
+#   - Use HTTPS URL: https://github.com/webmarcus/dagu.git
+#   - No SSH key needed - leave this commented out
+#
+# For PRIVATE repositories:
+# 1. Generate SSH key: ssh-keygen -t ed25519 -C "dagu@webmarcus.com"
+# 2. Add public key to GitHub: https://github.com/settings/keys
+# 3. Store private key in Bitwarden (entire contents of ~/.ssh/id_ed25519)
+# 4. Use SSH URL: git@github.com:user/repo.git
+# 5. Uncomment and add secret ID below:
+# git_ssh_key: "{{ lookup('bitwarden.secrets.lookup', 'YOUR-GIT-SSH-KEY-SECRET-ID', base_url=bitwarden_base_url) }}"
+
+# ============================================================================
+# Security Best Practices:
+# ============================================================================
+# - Never commit actual secret values to version control
+# - Rotate secrets regularly (every 90 days recommended)
+# - Use separate machine accounts for dev/staging/production environments
+# - Grant minimal required permissions (Read only) to machine accounts
+# - Monitor access logs in Bitwarden for suspicious activity
+# - Consider encrypting this file: ansible-vault encrypt group_vars/vault.yml
+# ============================================================================

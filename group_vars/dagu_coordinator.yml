@@ -1,0 +1,118 @@
+---
+# ============================================================================
+# Controller-specific Variables
+# ============================================================================
+
+# Node type
+dagu_node_type: "controller"
+
+# Navbar
+dagu_navbar_title: "Dagu Controller"
+dagu_navbar_color: "red"
+
+# ----------------------------------------------------------------------------
+# NFS Server Configuration
+# ----------------------------------------------------------------------------
+enable_nfs_server: true
+enable_nfs_client: false
+
+# Application user/group for NFS ownership
+nfs_app_user: "{{ dagu_user }}"
+nfs_app_group: "{{ dagu_group }}"
+
+# NFS exports
+nfs_export_paths:
+  - path: "/opt/dagu/shared/data"
+    options: "rw,sync,no_subtree_check,no_root_squash"
+  - path: "/opt/dagu/shared/logs"
+    options: "rw,sync,no_subtree_check,no_root_squash"
+  - path: "/opt/dagu/shared/dags"
+    options: "rw,sync,no_subtree_check,no_root_squash"
+
+# Allowed networks (Tailscale CGNAT range by default)
+nfs_allowed_networks: "100.64.0.0/10"
+
+# NFS shared directories to create
+nfs_shared_dirs:
+  - "/opt/dagu/shared"
+  - "/opt/dagu/shared/data"
+  - "/opt/dagu/shared/logs"
+  - "/opt/dagu/shared/dags"
+
+# ----------------------------------------------------------------------------
+# Git Integration (Optional - typically enabled on controller)
+# ----------------------------------------------------------------------------
+# Syncs DAG files from Git repository to coordinator
+# DAGs are shared to workers via NFS
+git_integration_enabled: true
+git_repo_url: "https://github.com/webmarcus/dagu.git"
+git_branch: "main"
+
+# Scheduled Sync Strategy (Optional)
+# Choose your sync approach based on your workflow:
+#
+# Strategy 1: GitHub Actions Only (Recommended for Active Development)
+#   - Fast incremental syncs triggered on every commit (seconds)
+#   - Only changed/new/deleted files transferred
+#   - Requires: .github/workflows/sync-to-dagu.yml in DAG repository
+#   - Setup: Tailscale OAuth client + GitHub Secrets
+#   - Config: Set git_sync_schedule to empty string or comment out
+#
+# Strategy 2: GitHub Actions + Scheduled Backup (Recommended for Production)
+#   - Best of both worlds: fast commits + periodic safety net
+#   - GitHub Actions handles incremental updates
+#   - Schedule provides full sync backup (catches missed updates)
+#   - Config: Set git_sync_schedule to desired backup interval
+#
+# Strategy 3: Scheduled Sync Only (Simplest Setup)
+#   - Periodic full clone from Git (no GitHub Actions needed)
+#   - Higher latency but simplest infrastructure
+#   - Good for: infrequent updates, simple deployments
+#   - Config: Set git_sync_schedule to desired interval
+#
+# Examples:
+git_sync_schedule: "0 3 * * *"      # Strategy 2: Daily backup at 03:00
+# git_sync_schedule: "0 */6 * * *"    # Strategy 2: Every 6 hours
+# git_sync_schedule: "*/15 * * * *"   # Strategy 3: Every 15 minutes
+# git_sync_schedule: ""               # Strategy 1: Disabled (GitHub Actions only)
+
+# Initial Deployment:
+# Regardless of strategy, Ansible triggers full sync on first deploy.
+# All DAG files from repository are synced to /opt/dagu/shared/dags/
+
+# ----------------------------------------------------------------------------
+# Architecture: Distributed Execution (Coordinator/Worker)
+# ----------------------------------------------------------------------------
+# Coordinator: Runs Web UI, scheduler, and gRPC server for task distribution
+# Workers: Headless nodes that pull tasks from coordinator via gRPC
+# DAGs: Shared via NFS (workers need to read DAG definitions)
+
+# Enable Distributed Mode - Coordinator
+dagu_distributed_mode: "coordinator"
+dagu_coordinator_host: "0.0.0.0"                       # Listen on all interfaces for gRPC
+dagu_coordinator_port: 50051                            # gRPC port for worker connections
+dagu_coordinator_advertise: "workstation.tail7da445.ts.net"   # Tailscale hostname for worker connections
+
+# ----------------------------------------------------------------------------
+# Optional Advanced Features
+# ----------------------------------------------------------------------------
+# Queue System for concurrency control across all workers
+dagu_queues_enabled: true
+dagu_queues_config:
+  default:
+    maxConcurrency: 5
+  # critical:
+  #   maxConcurrency: 2
+  # batch:
+  #   maxConcurrency: 10
+
+# API Token Authentication (for CI/CD)
+# dagu_enable_token_auth: true
+# dagu_auth_token: "{{ lookup('community.general.bitwarden', 'your-token-id', field='password')[0] }}"
+
+# Base configuration for shared DAG defaults
+# dagu_create_base_config: true
+# dagu_base_config_content: |
+#   env:
+#     - PATH: /usr/local/bin:/usr/bin:/bin
+#   histRetentionDays: 30

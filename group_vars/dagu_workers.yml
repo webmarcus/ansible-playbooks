@@ -1,0 +1,73 @@
+---
+# ============================================================================
+# Worker-specific Variables
+# ============================================================================
+
+# Node type (kept for backwards compatibility)
+dagu_node_type: "worker"
+
+# Server configuration
+# Workers run headless (no Web UI)
+dagu_host: "0.0.0.0"
+dagu_headless: true
+
+# Navbar (dynamic title per worker)
+dagu_navbar_title: "Dagu Worker - {{ inventory_hostname }}"
+dagu_navbar_color: "blue"
+
+# ----------------------------------------------------------------------------
+# NFS Client Configuration
+# ----------------------------------------------------------------------------
+enable_nfs_server: false
+enable_nfs_client: true
+
+# Application user/group for NFS ownership
+nfs_app_user: "{{ dagu_user }}"
+nfs_app_group: "{{ dagu_group }}"
+
+# NFS server (dynamically detected from inventory)
+# Coordinator can be "workstation" or "dagu" (VM) depending on deployment
+nfs_server_host: "{{ groups['dagu_coordinator'][0] }}"
+
+# NFS mounts on workers
+nfs_mounts:
+  - src: "{{ nfs_server_host }}:/opt/dagu/shared/data"
+    dest: "/opt/dagu/data"
+    opts: "rw,sync,hard,intr"
+  - src: "{{ nfs_server_host }}:/opt/dagu/shared/logs"
+    dest: "/opt/dagu/logs"
+    opts: "rw,sync,hard,intr"
+  - src: "{{ nfs_server_host }}:/opt/dagu/shared/dags"
+    dest: "/opt/dagu/dags"
+    opts: "rw,sync,hard,intr"
+
+# ----------------------------------------------------------------------------
+# Architecture: Distributed Execution (Worker Node)
+# ----------------------------------------------------------------------------
+# Workers are headless nodes that:
+# - Pull tasks from coordinator via gRPC
+# - Execute DAG steps assigned by coordinator
+# - Read DAG definitions from NFS
+# - Route tasks based on worker labels
+
+# Enable Distributed Mode - Worker
+dagu_distributed_mode: "worker"
+dagu_worker_id: "{{ inventory_hostname }}"
+dagu_worker_max_active_runs: 100
+dagu_worker_coordinator_host: "{{ groups['dagu_coordinator'][0] }}"
+dagu_worker_coordinator_port: 50051
+
+# Worker Labels (for task routing based on capabilities)
+dagu_worker_labels:
+  region: "eu-north-1"
+  type: "general"
+  # Example specialized labels:
+  # gpu: "nvidia-a100"
+  # type: "cpu-intensive"
+  # env: "production"
+
+# ----------------------------------------------------------------------------
+# Worker-specific Features
+# ----------------------------------------------------------------------------
+# Git integration disabled on workers (DAGs synced via NFS)
+git_integration_enabled: false

@@ -1,0 +1,112 @@
+---
+# ============================================================================
+# Global Variables - Apply to ALL hosts
+# ============================================================================
+#
+# This file contains variables that are truly global across all hosts.
+# Role-specific variables should be in role defaults, not here.
+#
+# NOTE: All secrets are configured in vault.yml (same directory)
+#
+# File structure:
+# - all.yml   : Non-sensitive configuration (this file)
+# - vault.yml : All sensitive credentials from Bitwarden Secrets Manager
+#
+# See README.md section "Secrets Management with Bitwarden" for setup.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Ansible Configuration
+# ----------------------------------------------------------------------------
+# Use Python 3 interpreter (modern Linux systems)
+ansible_python_interpreter: /usr/bin/python3
+
+# ----------------------------------------------------------------------------
+# Tailscale Configuration (artis3n.tailscale collection)
+# ----------------------------------------------------------------------------
+# NOTE: tailscale_authkey is configured in vault.yml
+
+# Installation options
+tailscale_install: true
+tailscale_state: latest  # 'latest', 'present', or specific version
+tailscale_release_track: stable  # 'stable' or 'unstable'
+
+# Service state
+tailscale_up: true  # Set to false to run 'tailscale down'
+
+# Tailscale up arguments
+tailscale_args:
+  hostname: "{{ inventory_hostname }}"
+  ssh: true
+  accept_routes: true
+  accept_dns: true
+  # advertise_exit_node: false
+  # advertise_routes: ""
+  # advertise_tags: ""
+  # exit_node: ""
+  # shields_up: false
+  # operator: ""
+
+# Backward compatibility (for references in playbooks)
+tailscale_hostname: "{{ inventory_hostname }}"
+
+# Verbose output (useful for debugging)
+verbose: false
+
+# ----------------------------------------------------------------------------
+# Docker Configuration (geerlingguy.docker)
+# ----------------------------------------------------------------------------
+# Docker packages
+docker_edition: 'ce'
+docker_packages_state: present
+
+# Docker Compose Plugin
+docker_install_compose_plugin: true
+docker_compose_package: docker-compose-plugin
+docker_compose_package_state: present
+
+# Docker service management
+docker_service_manage: true
+docker_service_state: started
+docker_service_enabled: true
+docker_restart_handler_state: restarted
+
+# Users to add to docker group
+# NOTE: dagu_user is defined in roles/dagu/defaults/main.yml
+docker_users:
+  - "{{ dagu_user | default('dagu') }}"
+
+# Repository management
+docker_add_repo: true
+
+# Optional: Docker daemon configuration
+# docker_daemon_options:
+#   storage-driver: "overlay2"
+#   log-opts:
+#     max-size: "100m"
+
+# ----------------------------------------------------------------------------
+# System Configuration
+# ----------------------------------------------------------------------------
+# Timezone
+system_timezone: "Europe/Stockholm"
+
+# Required packages (installed on all hosts)
+system_packages:
+  - curl
+  - wget
+  - git
+  - rsync
+  - lsb-release
+  - ca-certificates
+  - gnupg
+  - apt-transport-https
+  - openssl
+  - jq
+
+# ----------------------------------------------------------------------------
+# Security Configuration
+# ----------------------------------------------------------------------------
+# Config file permissions (used by multiple roles)
+config_file_mode: "0640"
+config_dir_mode: "0755"
