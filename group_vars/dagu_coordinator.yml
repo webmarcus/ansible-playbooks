@@ -92,6 +92,7 @@ dagu_distributed_mode: "coordinator"
 dagu_coordinator_host: "0.0.0.0"                       # Listen on all interfaces for gRPC
 dagu_coordinator_port: 50051                            # gRPC port for worker connections
 dagu_coordinator_advertise: "workstation.tail7da445.ts.net"   # Tailscale hostname for worker connections
+dagu_peer_insecure: true                                # Enable h2c (HTTP/2 Cleartext) for gRPC over Tailscale
 
 # ----------------------------------------------------------------------------
 # Optional Advanced Features

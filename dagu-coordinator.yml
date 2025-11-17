@@ -82,6 +82,14 @@
     - role: webmarcus.dagu.dagu
       tags: [dagu]
 
+  handlers:
+    - name: Restart dagu
+      ansible.builtin.systemd:
+        name: dagu
+        state: restarted
+        daemon_reload: yes
+      listen: "restart dagu"
+
   post_tasks:
     - name: Display NFS export information
       when: enable_nfs_server | default(false) | bool
