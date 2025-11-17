@@ -97,11 +97,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get Tailscale OAuth credentials from Bitwarden
+        uses: bitwarden/sm-action@v2
+        with:
+          access_token: ${{ secrets.BWS_ACCESS_TOKEN }}
+          base_url: https://vault.bitwarden.eu
+          secrets: |
+            <tailscale-oauth-client-id-uuid> > TAILSCALE_OAUTH_CLIENT_ID
+            <tailscale-oauth-secret-uuid> > TAILSCALE_OAUTH_SECRET
+
       - name: Setup Tailscale
         uses: tailscale/github-action@v2
         with:
-          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          oauth-client-id: ${{ env.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ env.TAILSCALE_OAUTH_SECRET }}
           tags: tag:ci
 
       - name: Setup Python
@@ -112,13 +121,6 @@ jobs:
       - name: Install Ansible and Redis
         run: |
           pip install ansible redis
-
-      - name: Install Bitwarden Secrets CLI
-        run: |
-          curl -Lo bws.zip "https://github.com/bitwarden/sdk/releases/latest/download/bws-x86_64-unknown-linux-gnu-1.0.0.zip"
-          unzip bws.zip
-          chmod +x bws
-          sudo mv bws /usr/local/bin/
 
       - name: Install Ansible Collections
         env:
