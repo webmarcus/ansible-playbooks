@@ -91,6 +91,25 @@
       listen: "restart dagu"
 
   post_tasks:
+    - name: Ensure --peer.insecure flag is present in coordinator service
+      when: dagu_distributed_mode == 'coordinator' and dagu_peer_insecure | default(false) | bool
+      tags: [dagu, coordinator]
+      block:
+        - name: Check if --peer.insecure is already present
+          ansible.builtin.shell: grep -q '\--peer\.insecure' /etc/systemd/system/dagu.service
+          register: peer_insecure_check
+          changed_when: false
+          failed_when: false
+
+        - name: Add --peer.insecure flag to coordinator service
+          when: peer_insecure_check.rc != 0
+          ansible.builtin.replace:
+            path: /etc/systemd/system/dagu.service
+            regexp: '(--coordinator\.advertise={{ dagu_coordinator_advertise | regex_escape }}) \\'
+            replace: '\1 \\\n  --peer.insecure \'
+          register: peer_insecure_added
+          notify: "restart dagu"
+
     - name: Display NFS export information
       when: enable_nfs_server | default(false) | bool
       tags: [nfs, info]
