@@ -28,6 +28,8 @@ nfs_export_paths:
     options: "rw,sync,no_subtree_check,no_root_squash"
   - path: "/opt/dagu/shared/dags"
     options: "rw,sync,no_subtree_check,no_root_squash"
+  - path: "/opt/dagu/shared/service-registry"
+    options: "rw,sync,no_subtree_check,no_root_squash"
 
 # Allowed networks (Tailscale CGNAT range by default)
 nfs_allowed_networks: "100.64.0.0/10"
@@ -38,6 +40,7 @@ nfs_shared_dirs:
   - "/opt/dagu/shared/data"
   - "/opt/dagu/shared/logs"
   - "/opt/dagu/shared/dags"
+  - "/opt/dagu/shared/service-registry"
 
 # ----------------------------------------------------------------------------
 # Git Integration (Optional - typically enabled on controller)
