@@ -97,6 +97,9 @@ dagu_coordinator_port: 50051                            # gRPC port for worker c
 dagu_coordinator_advertise: "workstation.tail7da445.ts.net"   # Tailscale hostname for worker connections
 dagu_peer_insecure: true                                # Enable h2c (HTTP/2 Cleartext) for gRPC over Tailscale
 
+# Service Registry (shared via NFS for worker discovery)
+dagu_service_registry_dir: "/opt/dagu/shared/service-registry"
+
 # ----------------------------------------------------------------------------
 # Optional Advanced Features
 # ----------------------------------------------------------------------------
