@@ -11,10 +11,6 @@ dagu_node_type: "worker"
 dagu_host: "0.0.0.0"
 dagu_headless: true
 
-# Navbar (dynamic title per worker)
-dagu_navbar_title: "Dagu Worker - {{ inventory_hostname }}"
-dagu_navbar_color: "blue"
-
 # ----------------------------------------------------------------------------
 # NFS Client Configuration
 # ----------------------------------------------------------------------------

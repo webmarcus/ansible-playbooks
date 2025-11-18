@@ -6,10 +6,6 @@
 # Node type
 dagu_node_type: "controller"
 
-# Navbar
-dagu_navbar_title: "Dagu Controller"
-dagu_navbar_color: "red"
-
 # ----------------------------------------------------------------------------
 # NFS Server Configuration
 # ----------------------------------------------------------------------------
