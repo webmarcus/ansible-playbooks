@@ -88,7 +88,8 @@ git_sync_schedule: "0 3 * * *"      # Strategy 2: Daily backup at 03:00
 
 # Enable Distributed Mode - Coordinator
 dagu_distributed_mode: "coordinator"
-dagu_coordinator_host: "127.0.0.1"                      # Bind to localhost (Tailscale serve proxies to this)
+dagu_host: "127.0.0.1"                                  # Web UI bind address (Tailscale serve proxies to this)
+dagu_coordinator_host: "127.0.0.1"                      # gRPC bind address (Tailscale serve proxies to this)
 dagu_coordinator_port: 50051                            # gRPC port for worker connections
 dagu_coordinator_advertise: "workstation.tail7da445.ts.net"   # Tailscale hostname for worker connections
 dagu_peer_insecure: true                                # Enable h2c (HTTP/2 Cleartext) for gRPC over Tailscale

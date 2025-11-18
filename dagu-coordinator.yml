@@ -143,13 +143,13 @@
           ansible.builtin.command: tailscale serve --bg --http=8080 http://localhost:8080
           register: tailscale_http_serve
           changed_when: "'Serving' in tailscale_http_serve.stdout or tailscale_http_serve.rc == 0"
-          failed_when: false
+          failed_when: tailscale_http_serve.rc != 0
 
         - name: Configure Tailscale serve for Coordinator (TCP)
           ansible.builtin.command: tailscale serve --bg --tcp=50051 tcp://localhost:50051
           register: tailscale_tcp_serve
           changed_when: "'Serving' in tailscale_tcp_serve.stdout or tailscale_tcp_serve.rc == 0"
-          failed_when: false
+          failed_when: tailscale_tcp_serve.rc != 0
 
         - name: Get Tailscale serve status
           ansible.builtin.command: tailscale serve status
@@ -162,6 +162,22 @@
             msg:
               - "Tailscale serve configured:"
               - "{{ tailscale_serve_status.stdout_lines }}"
+
+      rescue:
+        - name: Display Tailscale serve error details
+          ansible.builtin.debug:
+            msg:
+              - "ERROR: Tailscale serve configuration failed"
+              - "HTTP serve output: {{ tailscale_http_serve.stdout | default('N/A') }}"
+              - "HTTP serve error: {{ tailscale_http_serve.stderr | default('N/A') }}"
+              - "HTTP serve return code: {{ tailscale_http_serve.rc | default('N/A') }}"
+              - "TCP serve output: {{ tailscale_tcp_serve.stdout | default('N/A') }}"
+              - "TCP serve error: {{ tailscale_tcp_serve.stderr | default('N/A') }}"
+              - "TCP serve return code: {{ tailscale_tcp_serve.rc | default('N/A') }}"
+
+        - name: Fail playbook with clear error message
+          ansible.builtin.fail:
+            msg: "Tailscale serve configuration failed. Check error details above."
 
     - name: Display deployment summary
       ansible.builtin.debug:
