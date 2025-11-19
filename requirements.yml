@@ -89,5 +89,5 @@ collections:
   # Used by: dagu-coordinator.yml, dagu-workers.yml
   # Purpose: Deploy and configure Dagu in distributed mode
   - name: webmarcus.dagu
-    version: "1.2.3"
+    version: "1.2.6"
     source: https://galaxy.ansible.com
